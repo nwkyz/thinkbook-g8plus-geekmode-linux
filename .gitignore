@@ -1,0 +1,38 @@
+# ---------------------------------------------------------------------------
+# .gitignore for the ThinkBook G8+ Geek Mode repo
+# ---------------------------------------------------------------------------
+
+# Kernel module build output (created by `make` and by DKMS builds)
+*.o
+*.ko
+*.mod
+*.mod.c
+*.mod.o
+.*.cmd
+.module-common.o
+Module.symvers
+modules.order
+Module.markers
+.tmp_versions/
+*.symvers
+*.order
+*.dwo
+
+# Build logs / misc byproducts
+*.log
+*.tmp
+
+# ACPI table dumps and decompiled AML (local analysis only)
+*.dat
+*.dsl
+
+# Editors / OS
+*~
+*.swp
+.vscode/
+.idea/
+.DS_Store
+
+# Python caches (helper scripts, if any)
+__pycache__/
+*.py[cod]

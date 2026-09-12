@@ -1,0 +1,9 @@
+// Allow the active local user to run the Geek helper via pkexec without a
+// password prompt. Only /usr/local/bin/geek is permitted.
+polkit.addRule(function(action, subject) {
+    if (action.id == "org.freedesktop.policykit.exec" &&
+        action.lookup("program") == "/usr/local/bin/geek" &&
+        subject.active && subject.local) {
+        return polkit.Result.YES;
+    }
+});

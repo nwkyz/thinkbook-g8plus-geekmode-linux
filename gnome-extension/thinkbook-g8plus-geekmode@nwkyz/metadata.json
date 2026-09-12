@@ -1,0 +1,8 @@
+{
+  "uuid": "thinkbook-g8plus-geekmode@nwkyz",
+  "name": "ThinkBook G8+ Geek Mode",
+  "description": "Quick Settings toggle for Lenovo ThinkBook 16 G8+ IPD (21VJ) Extreme/Geek mode (170W). / 极客模式（170W）开关。",
+  "author": "nwkyz",
+  "shell-version": ["45", "46", "47", "48", "49", "50"],
+  "version": 1
+}

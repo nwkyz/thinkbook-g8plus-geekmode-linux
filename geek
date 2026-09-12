@@ -1,0 +1,266 @@
+#!/usr/bin/env bash
+#
+# geek - manual "Geek"/Extreme mode toggle for Lenovo ThinkBook 16 G8+ IPD (21VJ).
+#
+# Drives the *patched* ideapad-laptop platform_profile class device directly.
+# This is needed because on this machine the legacy
+# /sys/firmware/acpi/platform_profile interface only advertises the profiles
+# common to all providers, and the Intel "SoC Power Slider" only offers
+# low-power/balanced/performance -- so "max-power" is hidden there.
+#
+# Intentionally manual, like the ThinkBook G6+ project: PPD may reset the
+# profile when it changes power mode (which includes AC/battery events). Being
+# cleared on battery is expected and correct; Geek is never re-enabled just
+# because AC is present. Run `geek on` only when on AC and you want 170W.
+# The kernel refuses Geek on battery or with a <170W adapter budget.
+
+set -euo pipefail
+
+MIN_ADAPTER_WATTS=170
+RECOMMEND_ADAPTER_WATTS=245
+LEGACY=/sys/firmware/acpi/platform_profile
+CONFIG_DIR="${XDG_CONFIG_HOME:-$HOME/.config}/thinkbook-g8plus-geekmode"
+WARN_FLAG="$CONFIG_DIR/no-adapter-warning"
+
+ppdev=""
+profile=""
+choices=""
+
+find_ppdev() {
+	local d
+	for d in /sys/class/platform-profile/platform-profile-*; do
+		[[ -r "$d/name" ]] || continue
+		if [[ "$(<"$d/name")" == "ideapad-laptop" ]]; then
+			printf '%s\n' "$d"
+			return 0
+		fi
+	done
+	return 1
+}
+
+on_ac() {
+	local ps
+	for ps in /sys/class/power_supply/*; do
+		[[ -r "$ps/type" && -r "$ps/online" ]] || continue
+		[[ "$(<"$ps/type")" == "Mains" ]] || continue
+		[[ "$(<"$ps/online")" == "1" ]] && return 0
+	done
+	return 1
+}
+
+# Firmware-reported adapter budget in watts. Prefers the patched module's
+# firmware_adapter_watts attribute, falls back to the DPTF sysfs. Prints
+# nothing if neither is readable.
+adapter_watts() {
+	local f
+	for f in /sys/bus/platform/devices/VPC2004:*/firmware_adapter_watts; do
+		if [[ -r "$f" ]]; then
+			cat "$f"
+			return
+		fi
+	done
+	for f in /sys/devices/platform/INTC10D4:*/INTC10D8:*/dptf_power/adapter_rating_mw; do
+		if [[ -r "$f" ]]; then
+			echo $(( $(cat "$f") / 1000 ))
+			return
+		fi
+	done
+	echo ""
+}
+
+# Write a value to a sysfs file, using sudo only when not already root
+# (the GNOME extension calls this script through pkexec).
+write_value() {
+	local path=$1 value=$2
+	if [[ $EUID -eq 0 ]]; then
+		printf '%s\n' "$value" >"$path"
+	else
+		printf '%s\n' "$value" | sudo tee "$path" >/dev/null
+	fi
+}
+
+# ANSI colour only when stdout is a terminal. Decided once at startup, because
+# colorize() is also called from command substitutions (where stdout is a pipe).
+USE_COLOR=0
+if [[ -t 1 ]]; then
+	USE_COLOR=1
+fi
+
+colorize() {
+	local code=$1 text=$2
+	if [[ $USE_COLOR -eq 1 ]]; then
+		printf '\033[%sm%s\033[0m' "$code" "$text"
+	else
+		printf '%s' "$text"
+	fi
+}
+
+# "Don't remind again" flag, shared with the GNOME extension.
+warn_suppressed() {
+	[[ -e "$WARN_FLAG" ]]
+}
+
+# Warn (black on yellow) when the adapter qualifies for Geek (>=170 W) but is
+# below the recommended 245 W. Printed by `on` and `status`.
+print_adapter_warning() {
+	local aw
+	if warn_suppressed; then
+		return 0
+	fi
+	aw="$(adapter_watts)"
+	if [[ -n "$aw" ]] && (( aw >= MIN_ADAPTER_WATTS && aw < RECOMMEND_ADAPTER_WATTS )); then
+		printf '%s\n' "$(colorize '1;30;43' 'We recommend using 245W+ official adapter in extreme mode.')"
+	fi
+}
+
+# STATUS: ON (green) / OFF (blue) / UNAVAILABLE [reason] (yellow)
+print_status() {
+	local state reason aw
+
+	if [[ -z "$ppdev" ]] || ! grep -qw max-power "$choices" 2>/dev/null; then
+		state=UNAVAILABLE
+		reason="NEED PATCHED DRIVER"
+	elif ! on_ac; then
+		state=UNAVAILABLE
+		reason="NEED POWER SUPPLY"
+	else
+		aw="$(adapter_watts)"
+		if [[ -n "$aw" ]] && (( aw < MIN_ADAPTER_WATTS )); then
+			state=UNAVAILABLE
+			reason="NEED ${MIN_ADAPTER_WATTS}W+ POWER SUPPLY"
+		elif [[ "$(<"$profile")" == "max-power" ]]; then
+			state=ON
+		else
+			state=OFF
+		fi
+	fi
+
+	case "$state" in
+	ON)
+		printf 'STATUS: %s\n' "$(colorize '1;32' 'ON')"
+		;;
+	OFF)
+		printf 'STATUS: %s\n' "$(colorize '1;34' 'OFF')"
+		;;
+	*)
+		printf 'STATUS: %s\n' "$(colorize '1;33' "UNAVAILABLE [$reason]")"
+		;;
+	esac
+	printf '==========================\n'
+}
+
+usage() {
+	cat >&2 <<'EOF'
+usage: geek {on|off|status|notify}
+
+  on            engage Geek/Extreme mode (170W platform profile; requires AC)
+  off           return to the standard performance profile
+  status        show the ideapad provider state and the legacy aggregate
+  notify on     enable the "use 245W+ adapter" reminder
+  notify off    disable the reminder ("don't remind again")
+  notify status show the reminder setting
+EOF
+	exit 2
+}
+
+main() {
+	ppdev="$(find_ppdev)" || ppdev=""
+	if [[ -n "$ppdev" ]]; then
+		profile="$ppdev/profile"
+		choices="$ppdev/choices"
+	fi
+
+	case "${1:-}" in
+	on)
+		local aw
+		if [[ -z "$ppdev" ]]; then
+			echo "geek: ideapad-laptop platform_profile not found." >&2
+			echo "      Is the patched DKMS module loaded?  lsmod | grep ideapad_laptop" >&2
+			exit 1
+		fi
+		if ! grep -qw max-power "$choices"; then
+			echo "geek: this system does not expose max-power." >&2
+			exit 1
+		fi
+		if ! on_ac; then
+			echo "geek: refusing, not on AC power." >&2
+			exit 1
+		fi
+		aw="$(adapter_watts)"
+		if [[ -n "$aw" ]] && (( aw < MIN_ADAPTER_WATTS )); then
+			echo "geek: refusing, adapter budget ${aw}W < ${MIN_ADAPTER_WATTS}W." >&2
+			exit 1
+		fi
+		# Ask PPD for "performance" first: it also raises CPU EPP, and its
+		# legacy write must happen *before* we engage Geek (a later PPD
+		# write would clear Geek again).
+		if command -v powerprofilesctl >/dev/null 2>&1; then
+			powerprofilesctl set performance >/dev/null 2>&1 || true
+		fi
+		write_value "$profile" max-power
+		echo "geek: ON  (profile=$(<"$profile"), adapter=${aw:-unknown}W)"
+		print_adapter_warning
+		;;
+	off)
+		local awv
+		if [[ -z "$ppdev" ]]; then
+			echo "geek: ideapad-laptop platform_profile not found." >&2
+			exit 1
+		fi
+		awv="$(adapter_watts)"
+		write_value "$profile" performance
+		echo "geek: OFF (profile=$(<"$profile"), adapter=${awv:-unknown}W)"
+		;;
+	status)
+		print_status
+		print_adapter_warning
+		printf 'provider : %s\n' "${ppdev:-unavailable}"
+		if [[ -n "$ppdev" ]]; then
+			printf 'profile  : %s\n' "$(<"$profile")"
+			printf 'choices  : %s\n' "$(<"$choices")"
+		fi
+		local awv
+		awv="$(adapter_watts)"
+		if [[ -n "$awv" ]]; then
+			printf 'adapter  : %s W\n' "$awv"
+		else
+			printf 'adapter  : unknown\n'
+		fi
+		if command -v powerprofilesctl >/dev/null 2>&1; then
+			printf 'ppd      : %s\n' "$(powerprofilesctl get 2>/dev/null || echo unknown)"
+		fi
+		if [[ -r "$LEGACY" ]]; then
+			printf 'legacy   : %s\n' "$(<"$LEGACY")"
+		fi
+		;;
+	notify)
+		case "${2:-}" in
+		off)
+			mkdir -p "$CONFIG_DIR"
+			: >"$WARN_FLAG"
+			echo "geek: adapter reminder OFF (will not warn again)"
+			;;
+		on)
+			rm -f "$WARN_FLAG"
+			echo "geek: adapter reminder ON"
+			;;
+		status)
+			if warn_suppressed; then
+				echo "adapter reminder: OFF"
+			else
+				echo "adapter reminder: ON"
+			fi
+			;;
+		*)
+			echo "usage: geek notify {on|off|status}" >&2
+			exit 2
+			;;
+		esac
+		;;
+	*)
+		usage
+		;;
+	esac
+}
+
+main "$@"
