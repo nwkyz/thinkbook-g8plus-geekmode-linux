@@ -210,5 +210,11 @@ whole system 150W → 170W
 | DKMS build fails | run `make clean` first; make sure `linux-headers-$(uname -r)` is installed |
 | After plugging in, `geek status` shows it reverted to performance | PPD changed the profile and cleared Extreme Mode; just run `sudo geek on` again (expected behavior) |
 
+## License
+
+Released under **GPL-2.0-or-later** (see `LICENSE`). `ideapad-laptop.c` /
+`ideapad-laptop.h` are derived from the Linux kernel source and retain the
+original copyright and SPDX identifiers
+
 ## References
 [111inhistory/thinkbook-16-g6-plus-linux](https://github.com/111inhistory/thinkbook-16-g6-plus-linux)

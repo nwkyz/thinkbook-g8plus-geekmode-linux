@@ -4,6 +4,10 @@
  *
  *  Copyright © 2010 Intel Corporation
  *  Copyright © 2010 David Woodhouse <dwmw2@infradead.org>
+ *
+ *  Patched for the Lenovo ThinkBook 16 G8+ IPD (21VJ) to expose Lenovo
+ *  Extreme Mode as the "max-power" platform profile, with an adapter-budget
+ *  guard.  Changes Copyright (C) 2026 nwkyz.  See readme_en.md.
  */
 
 #define pr_fmt(fmt) KBUILD_MODNAME ": " fmt

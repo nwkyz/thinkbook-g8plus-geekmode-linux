@@ -187,5 +187,10 @@ ACPI Method(DYTC)  → FFSP=1 / GKMF=1 / OD18=1，切换高功率表（ATPP +20W
 | DKMS 编译失败 | 先 `make clean`；确认 `linux-headers-$(uname -r)` 已安装 |
 | 插电后 `geek status` 显示自动变回 performance | PPD 改档清了极客，重新 `sudo geek on` 即可（预期行为） |
 
+## 许可证
+
+本项目以 **GPL-2.0-or-later** 发布（见 `LICENSE`）。其中 `ideapad-laptop.c` /
+`ideapad-laptop.h` 派生自 Linux 内核源码，保留原始版权与 SPDX 标识
+
 ## 参考
 [111inhistory/thinkbook-16-g6-plus-linux](https://github.com/111inhistory/thinkbook-16-g6-plus-linux)

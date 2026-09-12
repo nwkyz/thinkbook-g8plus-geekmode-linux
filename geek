@@ -1,5 +1,8 @@
 #!/usr/bin/env bash
 #
+# SPDX-License-Identifier: GPL-2.0-or-later
+# Copyright (C) 2026 nwkyz
+#
 # geek - manual "Geek"/Extreme mode toggle for Lenovo ThinkBook 16 G8+ IPD (21VJ).
 #
 # Drives the *patched* ideapad-laptop platform_profile class device directly.
