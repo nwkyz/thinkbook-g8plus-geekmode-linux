@@ -7,7 +7,7 @@
 给 `ideapad-laptop` 打补丁，把 Lenovo「极客/Extreme 模式」暴露为 platform_profile 的 `max-power`，并提供手动开关。
 
 **已知兼容:**
-- **设备**：Lenovo ThinkBook 16+ 2026 独显版 356H+5060 ( G8+ IPD / `21VJ` )，BIOS `TRCN21WW`
+- **设备**：Lenovo ThinkBook 16+ 2026 独显版 356H+5060 ( G8+ IPD / `21VJ` )，BIOS `TRCN21WW` / `TRCN23WW`
 - **系统**：Ubuntu 26.04 @ Linux 7.0.0-31-generic
 
 > [!NOTE]

@@ -11,7 +11,7 @@ Patches `ideapad-laptop` to expose Lenovo's "Extreme Mode" as the platform_profi
 `max-power`, and provides a manual toggle.
 
 **Known compatible:**
-- **Device:** Lenovo ThinkBook 16+ 2026 (dGPU) 356H+5060 (G8+ IPD / `21VJ` ), BIOS `TRCN21WW`
+- **Device:** Lenovo ThinkBook 16+ 2026 (dGPU) 356H+5060 (G8+ IPD / `21VJ` ), BIOS `TRCN21WW` / `TRCN23WW`
 - **System:** Ubuntu 26.04 @ Linux 7.0.0-31-generic
 
 > [!NOTE]
